@@ -8,7 +8,7 @@ Examine the command line arguments and run either uniform cost or DFS on the tex
 """
 
 import sys
-import time
+import copy
 
 def main():
     if len(sys.argv) != 3:
@@ -29,8 +29,6 @@ def main():
 
     ## Find the important aspects of the grid and create a list of the 
     start_position, dirty_cells, blocked_cells = find_important_cells(grid)
-
-    print(dirty_cells)
 
     ## Create an empty 2D array of the visited cells 
     visited_cells = [[False for _ in range(grid_cols)] for _ in range(grid_rows)]
@@ -129,15 +127,17 @@ def valid_cell(grid_rows, grid_cols, bot_pos, blocked_cells, visited_cells):
     ## This means that the cell is valid and can be moved to
     return True
 
-def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_moved="Start", cleaned_cells=set(), complete_cleaning=[False]):
+def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_moved="Start", 
+                cleaned_cells=set(), complete_cleaning=[False], nodes_expanded=[0], nodes_generated=[0],
+                path=[], final_path=[[]], direction_log=[]):
     ## Once the cleaning is done, exit out of the search
     if complete_cleaning[0]:
         return
     
-    time.sleep(0.1)
-
     ## Current position of the bot on the grid 
     current_row, current_col = pos
+
+    nodes_generated[0] += 1
 
     ## Check if we have visited the current node, if the node is blocked, or if we are out of bounds
     if not valid_cell(len(grid), len(grid[0]), pos, blocked_cells, visited_cells):
@@ -145,25 +145,48 @@ def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_
 
     ## Add the current position to the visited cell list
     visited_cells[current_row][current_col] = True
+    nodes_expanded[0] += 1
+    path.append(pos)
 
-    print(f"Current visiting cell {pos}")
+    if(direction_moved != "Start"):
+        direction_log.append(direction_moved)
 
     ## Check if the current cell has a dirty spot
     if grid[current_row][current_col] == '*':
         cleaned_cells.add(pos)
-        print(f"Cleaned")
+        direction_log.append("V")
 
     ## Check if all of the dirty cells have been cleaned
     if(cleaned_cells == dirty_cells):
-        print("All dirty cells are clean")
         complete_cleaning[0] = True
+        final_path[0] = path.copy()
+        for movement in direction_log:
+            print(movement)
+        print(f"{nodes_generated[0]} nodes generated")
+        print(f"{nodes_expanded[0]} nodes expanded")
         return 
 
     ## Move left, right, up, down 
-    depth_first(grid, (current_row, current_col - 1), visited_cells, blocked_cells, dirty_cells, direction_moved="W", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Left movement
-    depth_first(grid, (current_row, current_col + 1), visited_cells, blocked_cells, dirty_cells, direction_moved="E", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Right movement
-    depth_first(grid, (current_row + 1, current_col), visited_cells, blocked_cells, dirty_cells, direction_moved="S", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Down movement
-    depth_first(grid, (current_row - 1, current_col), visited_cells, blocked_cells, dirty_cells, direction_moved="N", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Up movement
+    depth_first(grid, (current_row, current_col - 1), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells, 
+                direction_moved="W", 
+                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
+                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
+                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Left movement
+    depth_first(grid, (current_row, current_col + 1), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells,
+                direction_moved="E", 
+                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
+                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
+                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Right movement
+    depth_first(grid, (current_row + 1, current_col), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells,
+                direction_moved="S", 
+                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
+                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
+                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Down movement
+    depth_first(grid, (current_row - 1, current_col), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells, 
+                direction_moved="N", 
+                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
+                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
+                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Up movement
 
 def uniform_cost(grid, rows, columns):
 
