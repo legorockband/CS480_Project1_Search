@@ -8,6 +8,7 @@ Examine the command line arguments and run either uniform cost or DFS on the tex
 """
 
 import sys
+import time
 
 def main():
     if len(sys.argv) != 3:
@@ -24,22 +25,28 @@ def main():
         sys.exit(1)
 
     ## Create Grid from txt file
-    grid = text_parsing(input_text_file)
+    grid, grid_rows, grid_cols = text_parsing(input_text_file)
 
-    start_position, dirty_cells = find_important_cells(grid)
+    ## Find the important aspects of the grid and create a list of the 
+    start_position, dirty_cells, blocked_cells = find_important_cells(grid)
+
+    print(dirty_cells)
+
+    ## Create an empty 2D array of the visited cells 
+    visited_cells = [[False for _ in range(grid_cols)] for _ in range(grid_rows)]
 
     ## Check what algorithm you want to use 
     if (algo_to_run == "uniform_cost"):
         #uniform_cost(grid, start_position)
-        return 0
+        return 
     
     elif (algo_to_run == "depth_first"):
-        depth_first(grid, start_position)
-        return 0
+        depth_first(grid, start_position, visited_cells, blocked_cells, dirty_cells)
+        return 
 
     print(f"Usage: Wrong alogithm ran [{algo_to_run}], should be either uniform_cost or depth_first")
 
-    return 0
+    return 
 
 """
 Args:
@@ -68,10 +75,11 @@ def text_parsing(text_file):
             
     file.close()
 
-    return world_grid
+    return world_grid, rows, columns
 
 def find_important_cells(grid):
-    dirty_cells = []
+    dirty_cells = set()
+    blocked_cells = set()
     
     for row in range(len(grid)):
         for col in range(len(grid[0])):
@@ -81,22 +89,81 @@ def find_important_cells(grid):
             
             ## Find dirty cell 
             elif grid[row][col] == '*':
-                dirty_cells.append((row,col))
+                dirty_cells.add((row,col))
 
-    return starting_pos, dirty_cells
+            ## Find the blocked cells
+            elif grid[row][col] == '#':
+                blocked_cells.add((row, col))
+            
 
+    return starting_pos, dirty_cells, blocked_cells
 
-def depth_first(grid, starting_pos):
-    row = starting_pos[0]
-    col = starting_pos[1]
+"""
+Function that checks to make sure the vacuum can move to that cell or hasn't already been to that cell
 
-    ## Create a stack with the starting position in there
-    stack = [starting_pos]
+Args:
+- grid_rows = The total number of rows in the grid 
+- grid_cols = The total number of columns in the grid
+- bot_pos = The row and column that the robot is in 
+- blocked_cells = These are all of the positions that contain a '#'
+- visited_cells = The list of all of the cells that have already been visited in the grid
 
+Output: 
+- visited_cells: This will have an updated list of the cells that have been visited 
+"""
+def valid_cell(grid_rows, grid_cols, bot_pos, blocked_cells, visited_cells):
+    x_pos, y_pos = bot_pos
     
+    ## Check if the bot is going to move off of the grid
+    if(x_pos >= grid_rows or y_pos >= grid_cols or x_pos < 0 or y_pos < 0):
+        return False
 
+    ## Check if the node has been visited already
+    if(visited_cells[x_pos][y_pos]):
+        return False
 
-    return 0
+    ## Check if any bot is going to be on any of the blocked cells
+    if(bot_pos in blocked_cells):
+        return False
+
+    ## This means that the cell is valid and can be moved to
+    return True
+
+def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_moved="Start", cleaned_cells=set(), complete_cleaning=[False]):
+    ## Once the cleaning is done, exit out of the search
+    if complete_cleaning[0]:
+        return
+    
+    time.sleep(0.1)
+
+    ## Current position of the bot on the grid 
+    current_row, current_col = pos
+
+    ## Check if we have visited the current node, if the node is blocked, or if we are out of bounds
+    if not valid_cell(len(grid), len(grid[0]), pos, blocked_cells, visited_cells):
+        return 
+
+    ## Add the current position to the visited cell list
+    visited_cells[current_row][current_col] = True
+
+    print(f"Current visiting cell {pos}")
+
+    ## Check if the current cell has a dirty spot
+    if grid[current_row][current_col] == '*':
+        cleaned_cells.add(pos)
+        print(f"Cleaned")
+
+    ## Check if all of the dirty cells have been cleaned
+    if(cleaned_cells == dirty_cells):
+        print("All dirty cells are clean")
+        complete_cleaning[0] = True
+        return 
+
+    ## Move left, right, up, down 
+    depth_first(grid, (current_row, current_col - 1), visited_cells, blocked_cells, dirty_cells, direction_moved="W", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Left movement
+    depth_first(grid, (current_row, current_col + 1), visited_cells, blocked_cells, dirty_cells, direction_moved="E", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Right movement
+    depth_first(grid, (current_row + 1, current_col), visited_cells, blocked_cells, dirty_cells, direction_moved="S", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Down movement
+    depth_first(grid, (current_row - 1, current_col), visited_cells, blocked_cells, dirty_cells, direction_moved="N", cleaned_cells=cleaned_cells, complete_cleaning=complete_cleaning)  ## Up movement
 
 def uniform_cost(grid, rows, columns):
 
