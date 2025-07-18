@@ -8,7 +8,7 @@ Examine the command line arguments and run either uniform cost or DFS on the tex
 """
 
 import sys
-import copy
+import heapq
 
 ## (<direction>, <row>, <column>)
 direction_vector = [
@@ -43,7 +43,7 @@ def main():
 
     ## Check what algorithm you want to use 
     if (algo_to_run == "uniform_cost"):
-        #uniform_cost(grid, start_position)
+        uniform_cost(grid, start_position, dirty_cells, blocked_cells)
         return 
     
     elif (algo_to_run == "depth_first"):
@@ -115,16 +115,17 @@ Parameter:
 Output: 
 - visited_cells: This will have an updated list of the cells that have been visited 
 """
-def valid_cell(grid, bot_pos, blocked_cells, visited_cells):
+def valid_cell(grid, bot_pos, blocked_cells, visited_cells=None, search_algo=None):
     x_pos, y_pos = bot_pos
     
     ## Check if the bot is going to move off of the grid
     if(x_pos >= len(grid) or y_pos >= len(grid[0]) or x_pos < 0 or y_pos < 0):
         return False
 
-    ## Check if the node has been visited already
-    if(bot_pos in visited_cells):
-        return False
+    if(search_algo == 'DFS'):
+        ## Check if the node has been visited already
+        if(bot_pos in visited_cells):
+            return False
 
     ## Check if the bot position is going to be on any of the blocked cells
     if(bot_pos in blocked_cells):
@@ -177,7 +178,7 @@ def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_
     nodes_generated[0] += 1
 
     ## Check if we have visited the current node, if the node is blocked, or if we are out of bounds
-    if not valid_cell(grid, pos, blocked_cells, visited_cells): return 
+    if not valid_cell(grid, pos, blocked_cells, visited_cells, "DFS"): return 
 
     ## Add the current position to the visited cell list
     visited_cells.add(pos)
@@ -209,10 +210,55 @@ def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_
                     direction_moved=moved,cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
                     nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,path=path.copy(), final_path=final_path, direction_log=direction_log.copy())
 
-def uniform_cost(grid, rows, columns):
-
+def uniform_cost(grid, start_pos, dirty_cells, blocked_cells):
+    p_queue = []
+    visited_cells = set()
     
-    return 0
+    nodes_generated = 0
+    nodes_expanded = 0
+
+    heapq.heappush(p_queue, (0, start_pos, [], set(), []))
+    
+    while p_queue:
+        ## Get the value from the beginning of the queue
+        cost, current_pos, path, cleaned_cells, direction_log = heapq.heappop(p_queue)
+        nodes_expanded += 1
+
+        ## Current position of the bot on the grid 
+        current_row, current_col = current_pos
+        
+        path = path + [current_pos]
+
+        ## Check if you are on a dirty cell
+        if grid[current_row][current_col] == '*' and current_pos not in cleaned_cells:
+            cleaned_cells = cleaned_cells.union({current_pos})
+            direction_log = direction_log + ["V"]
+
+        ## Check if all of the dirty cells have been cleaned
+        if(cleaned_cells == dirty_cells):
+            for movement in direction_log:
+                print(movement)
+            print(f"{nodes_generated} nodes generated")
+            print(f"{nodes_expanded} nodes expanded")
+            return 
+
+
+        states = (current_pos, frozenset(cleaned_cells))
+        if states in visited_cells:
+            continue
+
+        visited_cells.add(states)
+
+        ## Move left, right, up, down
+        for moved, dir_r, dir_c in direction_vector:
+            next_pos = (current_row + dir_r, current_col + dir_c)
+
+            if valid_cell(grid, next_pos, blocked_cells, search_algo="UCS"):
+                heapq.heappush(p_queue, 
+                    (cost + 1, next_pos, path.copy(), cleaned_cells.copy(), direction_log + [moved]))
+                nodes_generated += 1
+    
+    print("No Solution was found")
 
 
 if __name__ == "__main__":
