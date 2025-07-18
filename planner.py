@@ -10,6 +10,14 @@ Examine the command line arguments and run either uniform cost or DFS on the tex
 import sys
 import copy
 
+## (<direction>, <row>, <column>)
+direction_vector = [
+    ("W", 0, -1), 
+    ("E", 0,  1),
+    ("N", -1, 0),
+    ("S", 1 , 0)
+]
+
 def main():
     if len(sys.argv) != 3:
         print("Usage: python3 planner.py [search algorithm] [.txt file]")
@@ -25,13 +33,13 @@ def main():
         sys.exit(1)
 
     ## Create Grid from txt file
-    grid, grid_rows, grid_cols = text_parsing(input_text_file)
+    grid = text_parsing(input_text_file)
 
     ## Find the important aspects of the grid and create a list of the 
     start_position, dirty_cells, blocked_cells = find_important_cells(grid)
 
     ## Create an empty 2D array of the visited cells 
-    visited_cells = [[False for _ in range(grid_cols)] for _ in range(grid_rows)]
+    visited_cells = set()
 
     ## Check what algorithm you want to use 
     if (algo_to_run == "uniform_cost"):
@@ -47,7 +55,7 @@ def main():
     return 
 
 """
-Args:
+Parameter:
   -text_file: The input file from the command line argument
 
 Output:
@@ -58,7 +66,6 @@ Output:
     - `@` for robot start (placed randomly in a non-blocked, non-dirty cell)
   - Starting row and column 
 """
-
 def text_parsing(text_file):
     with open(text_file, 'r', encoding='utf-16') as file:
         columns = int(file.readline().strip())
@@ -73,7 +80,7 @@ def text_parsing(text_file):
             
     file.close()
 
-    return world_grid, rows, columns
+    return world_grid
 
 def find_important_cells(grid):
     dirty_cells = set()
@@ -93,13 +100,12 @@ def find_important_cells(grid):
             elif grid[row][col] == '#':
                 blocked_cells.add((row, col))
             
-
     return starting_pos, dirty_cells, blocked_cells
 
 """
 Function that checks to make sure the vacuum can move to that cell or hasn't already been to that cell
 
-Args:
+Parameter:
 - grid_rows = The total number of rows in the grid 
 - grid_cols = The total number of columns in the grid
 - bot_pos = The row and column that the robot is in 
@@ -109,50 +115,80 @@ Args:
 Output: 
 - visited_cells: This will have an updated list of the cells that have been visited 
 """
-def valid_cell(grid_rows, grid_cols, bot_pos, blocked_cells, visited_cells):
+def valid_cell(grid, bot_pos, blocked_cells, visited_cells):
     x_pos, y_pos = bot_pos
     
     ## Check if the bot is going to move off of the grid
-    if(x_pos >= grid_rows or y_pos >= grid_cols or x_pos < 0 or y_pos < 0):
+    if(x_pos >= len(grid) or y_pos >= len(grid[0]) or x_pos < 0 or y_pos < 0):
         return False
 
     ## Check if the node has been visited already
-    if(visited_cells[x_pos][y_pos]):
+    if(bot_pos in visited_cells):
         return False
 
-    ## Check if any bot is going to be on any of the blocked cells
+    ## Check if the bot position is going to be on any of the blocked cells
     if(bot_pos in blocked_cells):
         return False
 
     ## This means that the cell is valid and can be moved to
     return True
 
+"""
+Parameters: 
+- grid [[]]: A 2D array that holds the vacuum world inside it 
+- pos (int, int): A tuple that holds the position for the robot
+- visited_cells [[]]: Holds a boolean on whether or not the robot has visited a cell
+- blocked_cells [(int, int)]: A list that holds all of the cell positions that are blocked
+- dirty_cells [(int, int)]: A list of all the dirty cells on the grid
+- direction_moved (string): Direction that the robot has moved 
+- cleaned_cells [(int, int)]: A list of all the dirty cells that have been cleaned already
+- complete_cleaning (bool): Flag to keep track of when all the cells have been cleaned to stop excessive recursions 
+- nodes_expanded (int): Number of nodes that get have there children searched through
+- nodes_generated (int): Number of nodes that get traversed
+- path []: The path from the robot to a dirty cell
+- final_path [[]]: The path for the robot to get to every single dirty cell
+- direction_log []: Track all of the directions that the robot went to make it to a dirty cell
+
+Output:
+- stdout print statments 
+  1. Directions the robot took 
+  2. <nodes_generated> nodes generated
+  3. <nodes_expanded> nodes expanded
+
+"""
 def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_moved="Start", 
-                cleaned_cells=set(), complete_cleaning=[False], nodes_expanded=[0], nodes_generated=[0],
-                path=[], final_path=[[]], direction_log=[]):
-    ## Once the cleaning is done, exit out of the search
-    if complete_cleaning[0]:
-        return
+                cleaned_cells=None, complete_cleaning=None, nodes_expanded=None, nodes_generated=None,
+                path=None, final_path=None, direction_log=None):
     
+    if cleaned_cells is None: cleaned_cells = set()
+    if complete_cleaning is None: complete_cleaning = [False]
+    if nodes_expanded is None: nodes_expanded = [0]
+    if nodes_generated is None: nodes_generated = [0]
+    if path is None: path = []
+    if final_path is None: final_path =[[]]
+    if direction_log is None: direction_log = []
+
+    ## Once the cleaning is done, exit out of the search
+    if complete_cleaning[0]: return
+
     ## Current position of the bot on the grid 
     current_row, current_col = pos
 
     nodes_generated[0] += 1
 
     ## Check if we have visited the current node, if the node is blocked, or if we are out of bounds
-    if not valid_cell(len(grid), len(grid[0]), pos, blocked_cells, visited_cells):
-        return 
+    if not valid_cell(grid, pos, blocked_cells, visited_cells): return 
 
     ## Add the current position to the visited cell list
-    visited_cells[current_row][current_col] = True
+    visited_cells.add(pos)
     nodes_expanded[0] += 1
     path.append(pos)
-
+ 
     if(direction_moved != "Start"):
         direction_log.append(direction_moved)
 
     ## Check if the current cell has a dirty spot
-    if grid[current_row][current_col] == '*':
+    if grid[current_row][current_col] == '*' and pos not in cleaned_cells:
         cleaned_cells.add(pos)
         direction_log.append("V")
 
@@ -165,34 +201,18 @@ def depth_first(grid, pos, visited_cells, blocked_cells, dirty_cells, direction_
         print(f"{nodes_generated[0]} nodes generated")
         print(f"{nodes_expanded[0]} nodes expanded")
         return 
-
-    ## Move left, right, up, down 
-    depth_first(grid, (current_row, current_col - 1), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells, 
-                direction_moved="W", 
-                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
-                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
-                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Left movement
-    depth_first(grid, (current_row, current_col + 1), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells,
-                direction_moved="E", 
-                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
-                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
-                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Right movement
-    depth_first(grid, (current_row + 1, current_col), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells,
-                direction_moved="S", 
-                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
-                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
-                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Down movement
-    depth_first(grid, (current_row - 1, current_col), visited_cells=copy.deepcopy(visited_cells), blocked_cells=blocked_cells, dirty_cells=dirty_cells, 
-                direction_moved="N", 
-                cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
-                nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,
-                path=path.copy(), final_path=final_path, direction_log=direction_log.copy())  ## Up movement
+    
+    ## Move left, right, up, down
+    for moved, dir_r, dir_c in direction_vector:
+        next_pos = (current_row + dir_r, current_col + dir_c)
+        depth_first(grid, next_pos, visited_cells=visited_cells.copy(), blocked_cells=blocked_cells, dirty_cells=dirty_cells,
+                    direction_moved=moved,cleaned_cells=cleaned_cells.copy(), complete_cleaning=complete_cleaning, 
+                    nodes_expanded=nodes_expanded, nodes_generated=nodes_generated,path=path.copy(), final_path=final_path, direction_log=direction_log.copy())
 
 def uniform_cost(grid, rows, columns):
 
-
+    
     return 0
-
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ Usage:
     python3 make_vacuum_world.py <rows> <cols> <blocked_fraction> <num_dirty>
 
 Example:
-    python3 make_vacuum_world.py 5 7 0.15 3 > random-5x7.txt
+    python3 make_vacuum_world.py 5 7 0.15 3 > sample-5x7.txt
 
 Parameters:
 - rows (int): Number of rows in the grid
